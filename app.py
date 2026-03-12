@@ -1,14 +1,10 @@
 import sys
+import argparse
+import subprocess
 from strategy import get_recommendation
 
-def main():
-    print("="*80)
-    print("   STOCK TRADING STRATEGY ANALYZER")
-    print("="*80)
-    
-    if len(sys.argv) > 1:
-        tickers = sys.argv[1:]
-    else:
+def run_cli(tickers):
+    if not tickers:
         user_input = input("Enter tickers separated by spaces (e.g., AAPL TSLA SPY): ")
         tickers = user_input.split()
     
@@ -66,6 +62,22 @@ def main():
 
     print("\nDisclaimer: Trading stocks involves significant risk. This app provides historical analysis and is not financial advice.")
     print("Note: Returns do not account for transaction costs, commissions, or slippage.")
+
+def main():
+    parser = argparse.ArgumentParser(description="Stock Trading Strategy Analyzer")
+    parser.add_argument("tickers", nargs="*", help="Stock tickers to analyze")
+    parser.add_argument("--ui", action="store_true", help="Run the Streamlit UI")
+
+    args = parser.parse_args()
+
+    if args.ui:
+        print("Launching UI...")
+        subprocess.run([sys.executable, "-m", "streamlit", "run", "ui.py"])
+    else:
+        print("="*80)
+        print("   STOCK TRADING STRATEGY ANALYZER (CLI)")
+        print("="*80)
+        run_cli(args.tickers)
 
 if __name__ == "__main__":
     main()
