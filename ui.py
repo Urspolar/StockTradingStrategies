@@ -56,6 +56,9 @@ def display_results(ticker, period='2y'):
     df = df[['strategy', 'description', 'total_return', 'win_rate', 'trade_count']]
     df['total_return'] = df['total_return'].apply(lambda x: f"{x:.2%}")
     df['win_rate'] = df['win_rate'].apply(lambda x: f"{x:.1%}")
+
+    # Rename columns for better display
+    df.columns = ['Strategy', 'Description', 'Return', 'Win%', 'Trades']
     st.table(df)
 
 # Sidebar for inputs
@@ -63,23 +66,25 @@ st.sidebar.header("Input")
 ticker_input = st.sidebar.text_input("Enter Ticker(s) separated by space", value="AAPL TSLA SPY")
 analyze_button = st.sidebar.button("Analyze")
 
-if analyze_button or ticker_input:
+if ticker_input:
     tickers = ticker_input.upper().split()
     if not tickers:
         st.sidebar.warning("Please enter at least one ticker.")
     else:
-        for ticker in tickers:
-            display_results(ticker)
-            st.divider()
+        if len(tickers) > 1:
+            selected_ticker = st.sidebar.selectbox("Select Ticker to View", options=tickers)
+        else:
+            selected_ticker = tickers[0]
 
-st.header("🔥 Popular Stocks (Last 6 Months)")
+        display_results(selected_ticker)
+
+st.sidebar.divider()
+st.sidebar.header("🔥 Popular Stocks (6mo)")
 popular_stocks = ["AAPL", "TSLA", "SPY"]
-pop_cols = st.columns(len(popular_stocks))
 
-for i, ticker in enumerate(popular_stocks):
-    with pop_cols[i]:
-        res = get_recommendation_cached(ticker, period='6mo')
-        if res:
-            rec = res['recommended']
-            st.metric(ticker, f"{rec['total_return']:.2%}", help=f"Best Strategy: {rec['strategy']}")
-            st.caption(f"Strategy: {rec['strategy']}")
+for ticker in popular_stocks:
+    res = get_recommendation_cached(ticker, period='6mo')
+    if res:
+        rec = res['recommended']
+        st.sidebar.metric(ticker, f"{rec['total_return']:.2%}", help=f"Best Strategy: {rec['strategy']}")
+        st.sidebar.caption(f"Best: {rec['strategy']}")

@@ -27,7 +27,7 @@ def run_cli(tickers):
         print("-" * len(header))
 
         for s in res['results']:
-            print(f"{s['strategy']:<15} | {s['description']:<35} | {s['total_return']:>9.2%} | {s['win_rate']:>5.1%}")
+            print(f"{s['strategy']:<15} | {s['description']:<35} | {s['total_return']:>10.2%} | {s['win_rate']:>6.1%} | {s['trade_count']:>6}")
 
         rec = res['recommended']
         print(f"\n>> BEST STRATEGY: {rec['strategy']}")
@@ -70,7 +70,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.ui:
+    if args.ui or not args.tickers:
         print("Launching UI...")
         subprocess.run([sys.executable, "-m", "streamlit", "run", "ui.py"])
     else:
