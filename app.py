@@ -70,7 +70,9 @@ def main():
 
     args = parser.parse_args()
 
-    if args.ui:
+    # Default to UI if no tickers are provided, unless specifically in CLI mode (implicit)
+    # However, the user said: "if you run the python app without adding a ticker symbol then it would create a UI"
+    if args.ui or not args.tickers:
         print("Launching UI...")
         subprocess.run([sys.executable, "-m", "streamlit", "run", "ui.py"])
     else:

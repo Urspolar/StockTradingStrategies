@@ -13,6 +13,22 @@ st.markdown("""
 This application analyzes historical stock market data to find simple daily strategies that have historically increased money.
 """)
 
+# Sidebar for inputs
+st.sidebar.header("Input")
+ticker_input = st.sidebar.text_input("Enter Ticker(s) separated by space", value="AAPL TSLA SPY")
+
+# Popular Stocks section in the sidebar
+st.sidebar.divider()
+st.sidebar.header("🔥 Popular Stocks (Last 6 Months)")
+popular_stocks = ["AAPL", "TSLA", "SPY", "MSFT", "NVDA", "AMZN"]
+for ticker in popular_stocks:
+    res = get_recommendation_cached(ticker, period='6mo')
+    if res:
+        rec = res['recommended']
+        # Use a simpler display for sidebar
+        st.sidebar.metric(ticker, f"{rec['total_return']:.2%}", help=f"Best Strategy: {rec['strategy']}")
+        st.sidebar.caption(f"Strategy: {rec['strategy']}")
+
 def display_results(ticker, period='2y'):
     res = get_recommendation_cached(ticker, period=period)
     if not res:
@@ -58,28 +74,17 @@ def display_results(ticker, period='2y'):
     df['win_rate'] = df['win_rate'].apply(lambda x: f"{x:.1%}")
     st.table(df)
 
-# Sidebar for inputs
-st.sidebar.header("Input")
-ticker_input = st.sidebar.text_input("Enter Ticker(s) separated by space", value="AAPL TSLA SPY")
-analyze_button = st.sidebar.button("Analyze")
-
-if analyze_button or ticker_input:
-    tickers = ticker_input.upper().split()
+# Main logic
+if ticker_input:
+    tickers = [t.strip().upper() for t in ticker_input.split() if t.strip()]
     if not tickers:
-        st.sidebar.warning("Please enter at least one ticker.")
+        st.warning("Please enter at least one ticker.")
     else:
-        for ticker in tickers:
-            display_results(ticker)
-            st.divider()
-
-st.header("🔥 Popular Stocks (Last 6 Months)")
-popular_stocks = ["AAPL", "TSLA", "SPY"]
-pop_cols = st.columns(len(popular_stocks))
-
-for i, ticker in enumerate(popular_stocks):
-    with pop_cols[i]:
-        res = get_recommendation_cached(ticker, period='6mo')
-        if res:
-            rec = res['recommended']
-            st.metric(ticker, f"{rec['total_return']:.2%}", help=f"Best Strategy: {rec['strategy']}")
-            st.caption(f"Strategy: {rec['strategy']}")
+        if len(tickers) > 1:
+            # Selection for multiple tickers as requested
+            selected_ticker = st.selectbox("Select a ticker to view results", options=tickers)
+            display_results(selected_ticker)
+        else:
+            display_results(tickers[0])
+else:
+    st.info("Enter one or more stock tickers in the sidebar to begin analysis.")
