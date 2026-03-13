@@ -36,7 +36,7 @@ def backtest_overnight(data):
         return None
     returns = (data['Open'].shift(-1) - data['Close']) / data['Close']
     returns = returns.dropna()
-    return format_result('Overnight', 'Buy Close, Sell next Open', returns)
+    return format_result('Overnight', 'Buy Close, Sell next Open', returns, "BUY at Market Close, SELL at next day's Open.")
 
 def backtest_intraday(data):
     """
@@ -45,7 +45,7 @@ def backtest_intraday(data):
     if data is None or len(data) < 1:
         return None
     returns = (data['Close'] - data['Open']) / data['Open']
-    return format_result('Intraday', 'Buy Open, Sell same Close', returns)
+    return format_result('Intraday', 'Buy Open, Sell same Close', returns, "BUY at Market Open, SELL at same day's Close.")
 
 def backtest_momentum(data):
     """
@@ -56,7 +56,7 @@ def backtest_momentum(data):
     prev_ret = (data['Close'].shift(1) - data['Open'].shift(1)) / data['Open'].shift(1)
     today_ret = (data['Close'] - data['Open']) / data['Open']
     trades = today_ret[prev_ret > 0]
-    return format_result('Momentum', 'Buy Open, Sell Close if prev day +', trades)
+    return format_result('Momentum', 'Buy Open, Sell Close if prev day +', trades, "BUY at Market Open if yesterday was positive, SELL at Close.")
 
 def backtest_mean_reversion(data):
     """
@@ -67,7 +67,7 @@ def backtest_mean_reversion(data):
     prev_ret = (data['Close'].shift(1) - data['Open'].shift(1)) / data['Open'].shift(1)
     today_ret = (data['Close'] - data['Open']) / data['Open']
     trades = today_ret[prev_ret < 0]
-    return format_result('Mean Reversion', 'Buy Open, Sell Close if prev day -', trades)
+    return format_result('Mean Reversion', 'Buy Open, Sell Close if prev day -', trades, "BUY at Market Open if yesterday was negative, SELL at Close.")
 
 def backtest_gap_down(data):
     """
@@ -78,7 +78,7 @@ def backtest_gap_down(data):
     gap = (data['Open'] - data['Close'].shift(1)) / data['Close'].shift(1)
     today_ret = (data['Close'] - data['Open']) / data['Open']
     trades = today_ret[gap < -0.005]
-    return format_result('Gap Down', 'Buy Open if Gap < -0.5%, Sell Close', trades)
+    return format_result('Gap Down', 'Buy Open if Gap < -0.5%, Sell Close', trades, "BUY at Market Open if gapped down > 0.5%, SELL at Close.")
 
 def backtest_weekend_effect(data):
     """
@@ -95,7 +95,7 @@ def backtest_weekend_effect(data):
     friday_data = data[data['Day'] == 4]
     returns = (friday_data['Next_Open'] - friday_data['Close']) / friday_data['Close']
     returns = returns.dropna()
-    return format_result('Weekend Effect', 'Buy Friday Close, Sell Monday Open', returns)
+    return format_result('Weekend Effect', 'Buy Friday Close, Sell Monday Open', returns, "BUY Friday Close, SELL Monday Open.")
 
 def backtest_three_day_trend(data):
     """
@@ -106,7 +106,7 @@ def backtest_three_day_trend(data):
     daily_ret = (data['Close'] - data['Open']) / data['Open']
     trend = (daily_ret.shift(1) > 0) & (daily_ret.shift(2) > 0) & (daily_ret.shift(3) > 0)
     trades = daily_ret[trend]
-    return format_result('3-Day Trend', 'Buy Open, Sell Close if 3 days +', trades)
+    return format_result('3-Day Trend', 'Buy Open, Sell Close if 3 days +', trades, "BUY at Market Open if last 3 days were positive, SELL at Close.")
 
 def backtest_rsi_reversion(data):
     """
@@ -118,9 +118,44 @@ def backtest_rsi_reversion(data):
     daily_ret = (data['Close'] - data['Open']) / data['Open']
     # If RSI of previous day is low, buy today's open
     trades = daily_ret[rsi.shift(1) < 35]
-    return format_result('RSI Reversion', 'Buy Open, Sell Close if RSI < 35', trades)
+    return format_result('RSI Reversion', 'Buy Open, Sell Close if RSI < 35', trades, "BUY at Market Open if RSI < 35, SELL at Close.")
 
-def format_result(name, desc, trades):
+def backtest_sma_trend(data):
+    """
+    Strategy: Buy Open, Sell Close if yesterday's Close > 50-day SMA.
+    """
+    if data is None or len(data) < 51:
+        return None
+    sma50 = data['Close'].rolling(window=50).mean()
+    daily_ret = (data['Close'] - data['Open']) / data['Open']
+    trades = daily_ret[data['Close'].shift(1) > sma50.shift(1)]
+    return format_result('SMA Trend', 'Buy Open, Sell Close if Close > SMA50', trades, "BUY at Market Open if yesterday's Close > 50-day SMA, SELL at Close.")
+
+def backtest_bollinger_oversold(data):
+    """
+    Strategy: Buy Open, Sell Close if yesterday's Close < Lower Bollinger Band (20, 2).
+    """
+    if data is None or len(data) < 21:
+        return None
+    ma20 = data['Close'].rolling(window=20).mean()
+    std20 = data['Close'].rolling(window=20).std()
+    lower_band = ma20 - (2 * std20)
+    daily_ret = (data['Close'] - data['Open']) / data['Open']
+    trades = daily_ret[data['Close'].shift(1) < lower_band.shift(1)]
+    return format_result('Bollinger Oversold', 'Buy Open if Close < Lower BB', trades, "BUY at Market Open if yesterday's Close < Lower Bollinger Band, SELL at Close.")
+
+def backtest_volume_spike(data):
+    """
+    Strategy: Buy Open, Sell Close if yesterday's Volume > 1.5x 20-day average.
+    """
+    if data is None or len(data) < 21:
+        return None
+    vol_avg = data['Volume'].rolling(window=20).mean()
+    daily_ret = (data['Close'] - data['Open']) / data['Open']
+    trades = daily_ret[data['Volume'].shift(1) > 1.5 * vol_avg.shift(1)]
+    return format_result('Volume Spike', 'Buy Open if Volume > 1.5x avg', trades, "BUY at Market Open if yesterday's Volume > 1.5x 20-day avg, SELL at Close.")
+
+def format_result(name, desc, trades, action):
     if trades.empty:
         return None
     total_return = (1 + trades).prod() - 1
@@ -130,7 +165,8 @@ def format_result(name, desc, trades):
         'description': desc,
         'total_return': total_return,
         'win_rate': win_rate,
-        'trade_count': len(trades)
+        'trade_count': len(trades),
+        'action': action
     }
 
 def get_recommendation(ticker, period='2y'):
@@ -149,7 +185,10 @@ def get_recommendation(ticker, period='2y'):
         backtest_gap_down(data),
         backtest_weekend_effect(data),
         backtest_three_day_trend(data),
-        backtest_rsi_reversion(data)
+        backtest_rsi_reversion(data),
+        backtest_sma_trend(data),
+        backtest_bollinger_oversold(data),
+        backtest_volume_spike(data)
     ]
     
     valid_strategies = [s for s in strategies if s is not None]

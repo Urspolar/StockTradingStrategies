@@ -41,23 +41,7 @@ def run_cli(tickers):
         
         print(f">> WHY: {reason}")
         
-        print(f"\n>> DAILY ACTION: ", end="")
-        if rec['strategy'] == 'Overnight':
-            print(f"BUY at Market Close, SELL at next day's Open.")
-        elif rec['strategy'] == 'Momentum':
-            print(f"BUY at Market Open if yesterday was positive, SELL at Close.")
-        elif rec['strategy'] == 'Mean Reversion':
-            print(f"BUY at Market Open if yesterday was negative, SELL at Close.")
-        elif rec['strategy'] == 'Gap Down':
-            print(f"BUY at Market Open if gapped down > 0.5%, SELL at Close.")
-        elif rec['strategy'] == 'Weekend Effect':
-            print(f"BUY Friday Close, SELL Monday Open.")
-        elif rec['strategy'] == '3-Day Trend':
-            print(f"BUY at Market Open if last 3 days were positive, SELL at Close.")
-        elif rec['strategy'] == 'RSI Reversion':
-            print(f"BUY at Market Open if RSI < 35, SELL at Close.")
-        else:
-            print(f"BUY at Market Open, SELL at same day's Close.")
+        print(f"\n>> DAILY ACTION: {rec['action']}")
         print("-" * 80)
 
     print("\nDisclaimer: Trading stocks involves significant risk. This app provides historical analysis and is not financial advice.")
