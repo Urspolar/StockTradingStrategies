@@ -30,13 +30,7 @@ def display_results(ticker, period='2y'):
     col3.metric("Win Rate", f"{rec['win_rate']:.1%}")
 
     # Reasoning and Action
-    reason = f"Based on the last {res['period_days']} market days, '{rec['strategy']}' had the highest historical return of {rec['total_return']:.2%}. "
-    if rec['win_rate'] > 0.55:
-        reason += f"It also maintains a strong win rate of {rec['win_rate']:.1%}. "
-    else:
-        reason += f"While the win rate is {rec['win_rate']:.1%}, the size of the winning trades significantly outweighed the losing ones. "
-
-    st.info(f"**Why:** {reason}")
+    st.info(f"**Why:** {rec.get('reasoning', 'Best historical performance.')}")
 
     st.success(f"**Daily Action:** {rec.get('action', 'BUY at Market Open, SELL at same day Close.')}")
 
