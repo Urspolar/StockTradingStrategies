@@ -160,14 +160,89 @@ def format_result(name, desc, trades, action):
         return None
     total_return = (1 + trades).prod() - 1
     win_rate = (trades > 0).mean()
+    wins = trades[trades > 0]
+    losses = trades[trades < 0]
     return {
         'strategy': name,
         'description': desc,
         'total_return': total_return,
         'win_rate': win_rate,
         'trade_count': len(trades),
+        'avg_win': wins.mean() if not wins.empty else 0,
+        'avg_loss': losses.mean() if not losses.empty else 0,
+        'max_win': trades.max(),
+        'max_loss': trades.min(),
         'action': action
     }
+
+def generate_detailed_reasoning(rec, data, ticker):
+    """
+    Generates a deep analysis of why a strategy performed well.
+    """
+    if not rec or data is None or data.empty:
+        return "Insufficient data for detailed analysis."
+
+    strat_name = rec['strategy']
+    total_ret = rec['total_return']
+    win_rate = rec['win_rate']
+    avg_win = rec['avg_win']
+    avg_loss = rec['avg_loss']
+
+    # 1. Market Context: Buy & Hold Comparison
+    bh_ret = (data['Close'].iloc[-1] - data['Close'].iloc[0]) / data['Close'].iloc[0]
+    comparison = "outperformed" if total_ret > bh_ret else "underperformed"
+
+    # 2. Market Regime Analysis
+    sma200 = data['Close'].rolling(window=200).mean()
+    if len(data) >= 200:
+        pct_above_sma200 = (data['Close'] > sma200).mean()
+        if pct_above_sma200 > 0.7:
+            regime = "strong long-term uptrend"
+        elif pct_above_sma200 < 0.3:
+            regime = "long-term downtrend"
+        else:
+            regime = "sideways or volatile phase"
+    else:
+        regime = "undetermined trend (short history)"
+
+    # 3. Strategy Type Specific Reasoning
+    trend_strats = ['SMA Trend', 'Momentum', '3-Day Trend', 'Volume Spike']
+    reversion_strats = ['RSI Reversion', 'Bollinger Oversold', 'Mean Reversion', 'Gap Down']
+    time_strats = ['Overnight', 'Weekend Effect', 'Intraday']
+
+    strat_type_reason = ""
+    if strat_name in trend_strats:
+        if "uptrend" in regime:
+            strat_type_reason = f"The '{strat_name}' strategy capitalized on the {regime}, effectively riding the positive momentum of {ticker}."
+        else:
+            strat_type_reason = f"Despite a {regime}, '{strat_name}' managed to find profitable entries by filtering for specific momentum bursts."
+    elif strat_name in reversion_strats:
+        strat_type_reason = f"'{strat_name}' succeeded by identifying 'oversold' conditions and profiting from {ticker}'s tendency to revert to its mean during the {regime}."
+    elif strat_name in time_strats:
+        if strat_name == 'Overnight':
+            strat_type_reason = f"The 'Overnight' strategy exploited the common 'overnight drift'—where significant price action for {ticker} often occurs between market close and the next day's open."
+        elif strat_name == 'Weekend Effect':
+            strat_type_reason = f"The 'Weekend Effect' captured the historical tendency for {ticker} to gap at the start of a new week after the Friday close."
+        else:
+            strat_type_reason = f"'{strat_name}' focused on specific intraday patterns, avoiding the risks and volatility associated with holding positions overnight."
+
+    # 4. Statistical Profile Reasoning
+    if win_rate > 0.6:
+        stat_reason = f"The strategy's success is driven by high consistency, winning {win_rate:.1%} of the time."
+    elif avg_win > abs(avg_loss) * 1.5:
+        stat_reason = f"Success was driven by 'fat tails'—the average winning trade ({avg_win:.2%}) was significantly larger than the average loss ({abs(avg_loss):.2%}), more than compensating for a lower win rate."
+    else:
+        stat_reason = f"The strategy maintained a healthy balance between a {win_rate:.1%} win rate and a favorable risk/reward ratio."
+
+    # Combine all pieces
+    reasoning = (
+        f"In the tested period, '{strat_name}' achieved a {total_ret:.2%} return, {comparison} a Buy & Hold return of {bh_ret:.2%}. "
+        f"{strat_type_reason} "
+        f"{stat_reason} "
+        f"This strategy was particularly effective because {ticker} exhibited {regime} characteristics over these {len(data)} market days."
+    )
+
+    return reasoning
 
 def get_recommendation(ticker, period='2y'):
     """
@@ -197,6 +272,9 @@ def get_recommendation(ticker, period='2y'):
     
     best = max(valid_strategies, key=lambda x: x['total_return'])
     
+    # Generate detailed reasoning for the best strategy
+    best['reasoning'] = generate_detailed_reasoning(best, data, ticker)
+
     return {
         'ticker': ticker,
         'period_days': len(data),

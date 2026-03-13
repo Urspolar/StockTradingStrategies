@@ -38,13 +38,7 @@ def run_cli(tickers):
         print(f"\n>> BEST STRATEGY: {rec['strategy']}")
         
         # Reasoning
-        reason = f"Based on the last {res['period_days']} market days, '{rec['strategy']}' had the highest historical return of {rec['total_return']:.2%}. "
-        if rec['win_rate'] > 0.55:
-            reason += f"It also maintains a strong win rate of {rec['win_rate']:.1%}. "
-        else:
-            reason += f"While the win rate is {rec['win_rate']:.1%}, the size of the winning trades significantly outweighed the losing ones. "
-        
-        print(f">> WHY: {reason}")
+        print(f">> WHY: {rec.get('reasoning', 'Best historical performance.')}")
         
         print(f"\n>> DAILY ACTION: {rec['action']}")
         print("-" * 80)
