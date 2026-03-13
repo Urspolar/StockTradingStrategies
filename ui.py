@@ -6,6 +6,11 @@ import pandas as pd
 def get_recommendation_cached(ticker, period='2y'):
     return get_recommendation(ticker, period=period)
 
+@st.cache_data(ttl=86400) # Cache for 24 hours
+def get_top_performers_cached(n=10, period='6mo'):
+    from strategy import get_top_performers
+    return get_top_performers(n=n, period=period)
+
 st.set_page_config(page_title="Stock Trading Strategy Analyzer", layout="wide")
 
 st.title("📈 Stock Trading Strategy Analyzer")
@@ -67,12 +72,19 @@ if ticker_input:
         display_results(selected_ticker, period=period)
 
 st.sidebar.divider()
-st.sidebar.header("🔥 Popular Stocks (6mo)")
-popular_stocks = ["AAPL", "TSLA", "SPY"]
+st.sidebar.header("🏆 Top 10 S&P 500 Performers (6mo)")
 
-for ticker in popular_stocks:
-    res = get_recommendation_cached(ticker, period='6mo')
-    if res:
-        rec = res['recommended']
-        st.sidebar.metric(ticker, f"{rec['total_return']:.2%}", help=f"Best Strategy: {rec['strategy']}")
-        st.sidebar.caption(f"Best: {rec['strategy']}")
+with st.sidebar:
+    with st.spinner("Calculating S&P 500 performance..."):
+        top_performers = get_top_performers_cached(n=10, period='6mo')
+
+    for item in top_performers:
+        ticker = item['ticker']
+        price_perf = item['performance']
+
+        # Get best strategy for this ticker
+        res = get_recommendation_cached(ticker, period='6mo')
+        if res:
+            rec = res['recommended']
+            st.metric(ticker, f"{price_perf:.2%}", help=f"Best Strategy: {rec['strategy']} ({rec['total_return']:.2%})")
+            st.caption(f"Best: {rec['strategy']} ({rec['total_return']:.2%})")

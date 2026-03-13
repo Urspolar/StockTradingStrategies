@@ -155,6 +155,59 @@ def backtest_volume_spike(data):
     trades = daily_ret[data['Volume'].shift(1) > 1.5 * vol_avg.shift(1)]
     return format_result('Volume Spike', 'Buy Open if Volume > 1.5x avg', trades, "BUY at Market Open if yesterday's Volume > 1.5x 20-day avg, SELL at Close.")
 
+def backtest_ema_cross(data):
+    """
+    Strategy: Buy Open, Sell Close if 9-day EMA > 21-day EMA.
+    """
+    if data is None or len(data) < 22:
+        return None
+    ema9 = data['Close'].ewm(span=9, adjust=False).mean()
+    ema21 = data['Close'].ewm(span=21, adjust=False).mean()
+    daily_ret = (data['Close'] - data['Open']) / data['Open']
+    trades = daily_ret[ema9.shift(1) > ema21.shift(1)]
+    return format_result('EMA Cross', 'Buy Open if EMA9 > EMA21', trades, "BUY at Market Open if 9-day EMA > 21-day EMA, SELL at Close.")
+
+def backtest_macd_signal(data):
+    """
+    Strategy: Buy Open, Sell Close if MACD > Signal line.
+    """
+    if data is None or len(data) < 35:
+        return None
+    exp1 = data['Close'].ewm(span=12, adjust=False).mean()
+    exp2 = data['Close'].ewm(span=26, adjust=False).mean()
+    macd = exp1 - exp2
+    signal = macd.ewm(span=9, adjust=False).mean()
+    daily_ret = (data['Close'] - data['Open']) / data['Open']
+    trades = daily_ret[macd.shift(1) > signal.shift(1)]
+    return format_result('MACD Signal', 'Buy Open if MACD > Signal', trades, "BUY at Market Open if MACD > Signal Line, SELL at Close.")
+
+def backtest_inside_day(data):
+    """
+    Strategy: Buy Open, Sell Close if yesterday was an inside day.
+    """
+    if data is None or len(data) < 3:
+        return None
+    prev_high = data['High'].shift(1)
+    prev_low = data['Low'].shift(1)
+    pprev_high = data['High'].shift(2)
+    pprev_low = data['Low'].shift(2)
+    inside_day = (prev_high < pprev_high) & (prev_low > pprev_low)
+    daily_ret = (data['Close'] - data['Open']) / data['Open']
+    trades = daily_ret[inside_day]
+    return format_result('Inside Day', 'Buy Open if yesterday was Inside Day', trades, "BUY at Market Open if yesterday was an Inside Day, SELL at Close.")
+
+def backtest_golden_cross(data):
+    """
+    Strategy: Buy Open, Sell Close if 50-day SMA > 200-day SMA.
+    """
+    if data is None or len(data) < 201:
+        return None
+    sma50 = data['Close'].rolling(window=50).mean()
+    sma200 = data['Close'].rolling(window=200).mean()
+    daily_ret = (data['Close'] - data['Open']) / data['Open']
+    trades = daily_ret[sma50.shift(1) > sma200.shift(1)]
+    return format_result('Golden Cross', 'Buy Open if SMA50 > SMA200', trades, "BUY at Market Open if 50-day SMA > 200-day SMA, SELL at Close.")
+
 def format_result(name, desc, trades, action):
     if trades.empty:
         return None
@@ -206,7 +259,7 @@ def generate_detailed_reasoning(rec, data, ticker):
         regime = "undetermined trend (short history)"
 
     # 3. Strategy Type Specific Reasoning
-    trend_strats = ['SMA Trend', 'Momentum', '3-Day Trend', 'Volume Spike']
+    trend_strats = ['SMA Trend', 'Momentum', '3-Day Trend', 'Volume Spike', 'EMA Cross', 'MACD Signal', 'Golden Cross', 'Inside Day']
     reversion_strats = ['RSI Reversion', 'Bollinger Oversold', 'Mean Reversion', 'Gap Down']
     time_strats = ['Overnight', 'Weekend Effect', 'Intraday']
 
@@ -244,6 +297,57 @@ def generate_detailed_reasoning(rec, data, ticker):
 
     return reasoning
 
+def get_sp500_tickers():
+    """
+    Scrapes S&P 500 tickers from Wikipedia.
+    """
+    try:
+        import requests
+        from io import StringIO
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
+        resp = requests.get(url, headers=headers)
+        tables = pd.read_html(StringIO(resp.text))
+        tickers = tables[0]['Symbol'].tolist()
+        return [t.replace('.', '-') for t in tickers]
+    except Exception as e:
+        print(f"Error fetching S&P 500 tickers: {e}")
+        # Return a small subset as fallback
+        return ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "NFLX", "AMD", "JPM"]
+
+def get_top_performers(n=10, period='6mo'):
+    """
+    Calculates the top n performers in the S&P 500 for a given period.
+    """
+    tickers = get_sp500_tickers()
+
+    # Download data for all tickers, only the Close column
+    data = yf.download(tickers, period=period, progress=False, actions=False)
+
+    if data.empty:
+        return []
+
+    # Extract Close prices
+    if isinstance(data.columns, pd.MultiIndex):
+        close_data = data['Close']
+    elif 'Close' in data.columns:
+        close_data = data['Close']
+    else:
+        # If only one ticker was returned or it's not a MultiIndex
+        close_data = data
+
+    performance = {}
+    for ticker in close_data.columns:
+        series = close_data[ticker].dropna()
+        if len(series) > 1:
+            perf = (series.iloc[-1] - series.iloc[0]) / series.iloc[0]
+            performance[ticker] = perf
+
+    sorted_perf = sorted(performance.items(), key=lambda x: x[1], reverse=True)
+    top_n = sorted_perf[:n]
+
+    return [{'ticker': t, 'performance': p} for t, p in top_n]
+
 def get_recommendation(ticker, period='2y'):
     """
     Analyzes a ticker and returns all strategy results.
@@ -263,7 +367,11 @@ def get_recommendation(ticker, period='2y'):
         backtest_rsi_reversion(data),
         backtest_sma_trend(data),
         backtest_bollinger_oversold(data),
-        backtest_volume_spike(data)
+        backtest_volume_spike(data),
+        backtest_ema_cross(data),
+        backtest_macd_signal(data),
+        backtest_inside_day(data),
+        backtest_golden_cross(data)
     ]
     
     valid_strategies = [s for s in strategies if s is not None]
