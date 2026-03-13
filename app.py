@@ -22,12 +22,17 @@ def run_cli(tickers):
             continue
 
         print(f"\n--- Results for {ticker} ({res['period_days']} market days tested) ---")
-        header = f"{'Strategy':<15} | {'Description':<35} | {'Return':<10} | {'Win%':<6} | {'Trades':<6}"
+
+        # Calculate dynamic column widths
+        max_strat = max([len(s['strategy']) for s in res['results']] + [8])  # 'Strategy' length
+        max_desc = max([len(s['description']) for s in res['results']] + [11]) # 'Description' length
+
+        header = f"{'Strategy':<{max_strat}} | {'Description':<{max_desc}} | {'Return':<10} | {'Win%':<6} | {'Trades':<6}"
         print(header)
         print("-" * len(header))
 
         for s in res['results']:
-            print(f"{s['strategy']:<15} | {s['description']:<35} | {s['total_return']:>10.2%} | {s['win_rate']:>6.1%} | {s['trade_count']:>6}")
+            print(f"{s['strategy']:<{max_strat}} | {s['description']:<{max_desc}} | {s['total_return']:>10.2%} | {s['win_rate']:>6.1%} | {s['trade_count']:>6}")
 
         rec = res['recommended']
         print(f"\n>> BEST STRATEGY: {rec['strategy']}")

@@ -65,8 +65,12 @@ if ticker_input:
             selected_ticker = st.sidebar.selectbox("Select Ticker to View", options=tickers)
         else:
             selected_ticker = tickers[0]
+            st.sidebar.info(f"Selected: **{selected_ticker}**")
 
-        display_results(selected_ticker)
+        num_days = st.sidebar.number_input("Number of days for analysis", value=730, min_value=1, step=1)
+        period = f"{num_days}d"
+
+        display_results(selected_ticker, period=period)
 
 st.sidebar.divider()
 st.sidebar.header("🔥 Popular Stocks (6mo)")
