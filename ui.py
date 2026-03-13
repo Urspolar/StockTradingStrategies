@@ -38,18 +38,7 @@ def display_results(ticker, period='2y'):
 
     st.info(f"**Why:** {reason}")
 
-    action_map = {
-        'Overnight': "BUY at Market Close, SELL at next day's Open.",
-        'Momentum': "BUY at Market Open if yesterday was positive, SELL at Close.",
-        'Mean Reversion': "BUY at Market Open if yesterday was negative, SELL at Close.",
-        'Gap Down': "BUY at Market Open if gapped down > 0.5%, SELL at Close.",
-        'Weekend Effect': "BUY Friday Close, SELL Monday Open.",
-        '3-Day Trend': "BUY at Market Open if last 3 days were positive, SELL at Close.",
-        'RSI Reversion': "BUY at Market Open if RSI < 35, SELL at Close.",
-        'Intraday': "BUY at Market Open, SELL at same day's Close."
-    }
-
-    st.success(f"**Daily Action:** {action_map.get(rec['strategy'], 'BUY at Market Open, SELL at same day Close.')}")
+    st.success(f"**Daily Action:** {rec.get('action', 'BUY at Market Open, SELL at same day Close.')}")
 
     # Detailed Results Table
     df = pd.DataFrame(res['results'])
@@ -59,6 +48,7 @@ def display_results(ticker, period='2y'):
 
     # Rename columns for better display
     df.columns = ['Strategy', 'Description', 'Return', 'Win%', 'Trades']
+    df.index = df.index + 1
     st.table(df)
 
 # Sidebar for inputs
